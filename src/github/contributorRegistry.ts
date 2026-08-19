@@ -1,85 +1,49 @@
 /**
- * Contributor Registry
+ * Contributor Registry — public API
  *
- * Maps GitHub usernames to Stellar addresses.
- * In production this would be backed by a database (PostgreSQL, Redis, etc.).
- * For this reference implementation we use an in-memory store with a JSON
- * persistence layer — easy to swap out.
+ * Thin delegation layer over the registry adapter selected by the factory in
+ * src/github/registry/index.ts.  All callers (routes, processor, tests) import
+ * from this module so they are not coupled to the concrete adapter.
  *
- * Contributors register their Stellar address via the GrantFox platform, which
- * calls the /register endpoint on this service.
+ * Adapter selection:
+ *   DATABASE_URL set   → PostgreSQL (persistent, scalable)
+ *   DATABASE_URL unset → JSON file  (zero-config, development-friendly)
  */
 
-import { readFileSync, writeFileSync, existsSync } from "fs";
 import { ContributorMapping } from "../types.js";
-
-const REGISTRY_PATH = "./data/contributors.json";
-
-/** Load the registry from disk (or return empty). */
-function loadRegistry(): Map<string, ContributorMapping> {
-  if (!existsSync(REGISTRY_PATH)) return new Map();
-  try {
-    const raw = readFileSync(REGISTRY_PATH, "utf-8");
-    const arr: ContributorMapping[] = JSON.parse(raw);
-    return new Map(arr.map((c) => [c.githubUsername.toLowerCase(), c]));
-  } catch {
-    return new Map();
-  }
-}
-
-/** Persist the registry to disk. */
-function saveRegistry(registry: Map<string, ContributorMapping>): void {
-  const arr = Array.from(registry.values());
-  try {
-    // Ensure data directory exists
-    writeFileSync(REGISTRY_PATH, JSON.stringify(arr, null, 2));
-  } catch (err) {
-    console.error("Failed to persist contributor registry:", err);
-  }
-}
-
-const registry = loadRegistry();
+import { getRegistry } from "./registry/index.js";
 
 /**
  * Register or update a contributor's Stellar address.
+ * Throws if the address format is invalid.
  */
-export function registerContributor(
+export async function registerContributor(
   githubUsername: string,
   stellarAddress: string
-): ContributorMapping {
-  if (!stellarAddress.startsWith("G") || stellarAddress.length !== 56) {
-    throw new Error("Invalid Stellar address format");
-  }
-
-  const mapping: ContributorMapping = {
-    githubUsername: githubUsername.toLowerCase(),
-    stellarAddress,
-    registeredAt: new Date().toISOString(),
-  };
-
-  registry.set(githubUsername.toLowerCase(), mapping);
-  saveRegistry(registry);
-  return mapping;
+): Promise<ContributorMapping> {
+  return getRegistry().register(githubUsername, stellarAddress);
 }
 
 /**
- * Look up a contributor's Stellar address by GitHub username.
- * Returns null if not registered.
+ * Resolve a GitHub username to a Stellar address.
+ * Returns null when the contributor is not registered.
  */
-export function getStellarAddress(githubUsername: string): string | null {
-  return registry.get(githubUsername.toLowerCase())?.stellarAddress ?? null;
+export async function getStellarAddress(
+  githubUsername: string
+): Promise<string | null> {
+  return getRegistry().getStellarAddress(githubUsername);
 }
 
 /**
- * Get all registered contributors.
+ * Return all registered contributors.
  */
-export function getAllContributors(): ContributorMapping[] {
-  return Array.from(registry.values());
+export async function getAllContributors(): Promise<ContributorMapping[]> {
+  return getRegistry().getAll();
 }
 
 /**
- * Check if a GitHub username is registered.
+ * Return true when the given GitHub username has a registered Stellar address.
  */
-export function isRegistered(githubUsername: string): boolean {
-  return registry.has(githubUsername.toLowerCase());
+export async function isRegistered(githubUsername: string): Promise<boolean> {
+  return getRegistry().isRegistered(githubUsername);
 }

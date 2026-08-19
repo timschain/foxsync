@@ -1,11 +1,32 @@
 version: "3.9"
 
 services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-foxsync}
+      POSTGRES_USER:     ${POSTGRES_USER:-foxsync}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-foxsync} -d ${POSTGRES_DB:-foxsync}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Webhook Sync Service ────────────────────────────────────────────────────
   foxsync:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3001:3001"
     environment:
@@ -23,6 +44,9 @@ services:
       REPUTATION_CONTRACT_ID: ${REPUTATION_CONTRACT_ID:-CD2VIBP7TYVGW6NRFIM4WKUQDNUIIT2UB66CPF7K77DOO2WOMO4KB7U4}
       ESCROW_CONTRACT_ID: ${ESCROW_CONTRACT_ID:-CCQ7CUG4NZ6QSAG62OMCVYWXVPXJMBJF2WCA6WJRBZ3YOQ4K2DWN5RHV}
 
+      # PostgreSQL — automatically wired from the postgres service above
+      DATABASE_URL: postgresql://${POSTGRES_USER:-foxsync}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-foxsync}
+
       # GrantFox API (optional)
       GRANTFOX_API_URL: ${GRANTFOX_API_URL:-}
       GRANTFOX_API_KEY: ${GRANTFOX_API_KEY:-}
@@ -37,8 +61,10 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
 volumes:
   foxsync_data:
+    driver: local
+  postgres_data:
     driver: local

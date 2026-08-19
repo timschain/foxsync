@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "GitHub webhook service that syncs OSS contributions to GrantFox and triggers Stellar reputation updates",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc --project tsconfig.build.json",
@@ -13,16 +15,18 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@octokit/webhooks": "^13.4.0",
     "@octokit/rest": "^21.0.2",
+    "@octokit/webhooks": "^13.4.0",
     "@stellar/stellar-sdk": "^13.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "pg": "^8.13.3",
     "zod": "^3.24.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.10",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3",
     "vitest": "^3.1.3"

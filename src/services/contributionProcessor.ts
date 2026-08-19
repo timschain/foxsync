@@ -28,7 +28,7 @@ export async function processContributionEvent(
   );
 
   // Step 1: Look up Stellar address
-  const stellarAddress = getStellarAddress(event.contributor);
+  const stellarAddress = await getStellarAddress(event.contributor);
   if (!stellarAddress) {
     const msg = `@${event.contributor} has no registered Stellar address — skipping on-chain award`;
     console.warn(`⚠️  ${msg}`);

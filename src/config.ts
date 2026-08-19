@@ -31,6 +31,9 @@ const configSchema = z.object({
   REPUTATION_CONTRACT_ID: z.string().default(""),
   ESCROW_CONTRACT_ID: z.string().default(""),
 
+  // Database (optional — enables PostgreSQL adapter when set)
+  DATABASE_URL: z.string().url().optional(),
+
   // GrantFox platform API (optional)
   GRANTFOX_API_URL: z.string().url().optional(),
   GRANTFOX_API_KEY: z.string().optional(),

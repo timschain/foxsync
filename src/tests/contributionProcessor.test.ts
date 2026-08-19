@@ -5,6 +5,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ContributionEvent } from "../types.js";
 
+// Mock config so process.exit is never called when env vars are missing
+vi.mock("../config.js", () => ({
+  config: {
+    STELLAR_NETWORK: "testnet",
+    STELLAR_RPC_URL: "https://soroban-testnet.stellar.org",
+    STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015",
+    STELLAR_OPERATOR_SECRET: "SCZANGBA5XTONSRAZ7RXNLQPFORFHMFTG4IKOAYTQ7JVOVUKTKMGQE4BLAHHHH",
+    REPUTATION_CONTRACT_ID: "",
+    ESCROW_CONTRACT_ID: "",
+    GRANTFOX_API_URL: undefined,
+    GRANTFOX_API_KEY: undefined,
+    PORT: 3001,
+    NODE_ENV: "test",
+    DATABASE_URL: undefined,
+  },
+}));
+
 // Mock external dependencies
 vi.mock("../stellar/reputationClient.js", () => ({
   awardFoxPoints: vi.fn().mockResolvedValue("mock-tx-hash-abc123"),
@@ -17,14 +34,14 @@ vi.mock("../services/grantfoxSync.js", () => ({
 vi.mock("fs", () => ({
   readFileSync: vi.fn(() => "[]"),
   writeFileSync: vi.fn(),
-  existsSync: vi.fn(() => false),
+  existsSync:   vi.fn(() => false),
 }));
 
 const { processContributionEvent } = await import("../services/contributionProcessor.js");
 const { registerContributor } = await import("../github/contributorRegistry.js");
 const { awardFoxPoints } = await import("../stellar/reputationClient.js");
 
-const VALID_STELLAR = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+const VALID_STELLAR = "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGSR0KLQ3RCA3B7HDKDZ2GZ";
 
 const mockEvent: ContributionEvent = {
   number: 42,
@@ -54,7 +71,7 @@ describe("processContributionEvent", () => {
   });
 
   it("awards FoxPoints for a registered contributor", async () => {
-    registerContributor("testuser", VALID_STELLAR);
+    await registerContributor("testuser", VALID_STELLAR);
 
     const result = await processContributionEvent(mockEvent);
 
@@ -65,7 +82,7 @@ describe("processContributionEvent", () => {
   });
 
   it("calculates default points when no matching labels", async () => {
-    registerContributor("testuser", VALID_STELLAR);
+    await registerContributor("testuser", VALID_STELLAR);
 
     const result = await processContributionEvent({
       ...mockEvent,
@@ -76,7 +93,7 @@ describe("processContributionEvent", () => {
   });
 
   it("returns error result when Stellar call fails", async () => {
-    registerContributor("testuser", VALID_STELLAR);
+    await registerContributor("testuser", VALID_STELLAR);
     vi.mocked(awardFoxPoints).mockRejectedValueOnce(new Error("RPC error"));
 
     const result = await processContributionEvent(mockEvent);
@@ -86,7 +103,7 @@ describe("processContributionEvent", () => {
   });
 
   it("handles issue_closed events", async () => {
-    registerContributor("testuser", VALID_STELLAR);
+    await registerContributor("testuser", VALID_STELLAR);
 
     const result = await processContributionEvent({
       ...mockEvent,

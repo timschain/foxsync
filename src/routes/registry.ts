@@ -29,7 +29,7 @@ const RegisterSchema = z.object({
 /** Register a contributor's Stellar address. */
 registryRouter.post(
   "/",
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response): Promise<void> => {
     const parsed = RegisterSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.flatten() });
@@ -37,7 +37,7 @@ registryRouter.post(
     }
 
     try {
-      const mapping = registerContributor(
+      const mapping = await registerContributor(
         parsed.data.github_username,
         parsed.data.stellar_address
       );
@@ -53,9 +53,9 @@ registryRouter.post(
 /** Look up a contributor's Stellar address. */
 registryRouter.get(
   "/:username",
-  (req: Request, res: Response): void => {
+  async (req: Request, res: Response): Promise<void> => {
     const { username } = req.params;
-    const address = getStellarAddress(username);
+    const address = await getStellarAddress(username);
 
     if (!address) {
       res.status(404).json({ error: "Contributor not registered" });
@@ -69,7 +69,8 @@ registryRouter.get(
 /** List all registered contributors. */
 registryRouter.get(
   "/",
-  (_req: Request, res: Response): void => {
-    res.json({ contributors: getAllContributors() });
+  async (_req: Request, res: Response): Promise<void> => {
+    const contributors = await getAllContributors();
+    res.json({ contributors });
   }
 );
