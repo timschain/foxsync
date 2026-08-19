@@ -17,6 +17,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { config } from "../config.js";
+import { getBandPrice } from "../oracle/bandOracle.js";
 
 const server = new SorobanRpc.Server(config.STELLAR_RPC_URL, {
   allowHttp: false,
@@ -92,6 +93,39 @@ export async function awardFoxPoints(
 
   if (getResult.status !== SorobanRpc.Api.GetTransactionStatus.SUCCESS) {
     throw new Error(`Transaction did not succeed: ${getResult.status}`);
+  }
+
+  // Notify configured webhook about the successful award (non-blocking, errors logged)
+  if (config.FOXPOINTS_AWARD_WEBHOOK_URL) {
+    try {
+      // Enrich payload with a Band Protocol price (best-effort)
+      let price: number | null = null;
+      try {
+        price = await getBandPrice(config.BAND_PRICE_SYMBOL);
+      } catch (err) {
+        // don't fail the award if price lookup fails
+        console.warn("Band price lookup failed:", err);
+      }
+
+      const payload: Record<string, unknown> = {
+        txHash: sendResult.hash,
+        stellarAddress,
+        points,
+      };
+      if (price != null) {
+        payload["price"] = price;
+        payload["priceSymbol"] = config.BAND_PRICE_SYMBOL;
+      }
+
+      await fetch(config.FOXPOINTS_AWARD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      console.log("📣 FoxPoints award webhook sent");
+    } catch (err) {
+      console.error("Failed to send FoxPoints award webhook:", err);
+    }
   }
 
   return sendResult.hash;
