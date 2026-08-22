@@ -15,6 +15,7 @@ import { registryRouter } from "./routes/registry.js";
 import { historyRouter } from "./routes/history.js";
 import { setContributionEventHandler } from "./github/webhookHandler.js";
 import { processContributionEvent } from "./services/contributionProcessor.js";
+import { webhookRateLimiter } from "./middleware/rateLimiter.js";
 import { mkdirSync } from "fs";
 
 // Ensure data directory exists for JSON registry fallback
@@ -22,7 +23,17 @@ mkdirSync("./data", { recursive: true });
 
 const app = express();
 
+// Trust X-Forwarded-For when running behind a reverse proxy (nginx, AWS ALB, etc.)
+// Only enabled when TRUST_PROXY=1 / TRUST_PROXY=true in the environment.
+if (config.TRUST_PROXY) {
+  app.set("trust proxy", 1);
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
+
+// Rate limiting — must run before the raw-body parser so rejected requests
+// never reach the (more expensive) HMAC verification step.
+app.use("/webhook", webhookRateLimiter);
 
 // Raw body needed for GitHub webhook HMAC verification
 app.use(
