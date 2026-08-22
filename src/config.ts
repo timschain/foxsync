@@ -48,6 +48,18 @@ const configSchema = z.object({
   // Server
   PORT: z.coerce.number().default(3001),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+
+  // Rate limiting — POST /webhook
+  // RATE_LIMIT_WINDOW_MS: sliding window duration in milliseconds (default 1 minute)
+  // RATE_LIMIT_MAX:       max requests per IP per window (default 30)
+  // TRUST_PROXY:          set to "1" when running behind a reverse proxy / load balancer
+  //                       so that X-Forwarded-For is used as the real IP
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+  TRUST_PROXY: z
+    .string()
+    .optional()
+    .transform((v) => v === "1" || v === "true"),
 });
 
 const parsed = configSchema.safeParse(process.env);
